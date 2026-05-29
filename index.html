@@ -468,6 +468,11 @@ select { font-size: calc(var(--font-size) - 2px); }
     </div>
   </div>
 
+  <div class="card" id="installCard" style="display:none; border-color:var(--accent-calc)">
+    <div class="card-title" style="color:var(--accent-calc)">📱 앱 설치</div>
+    <button class="btn btn-outline" style="width:100%; border-color:var(--accent-calc); color:var(--accent-calc)" onclick="installApp()">홈 화면에 앱 설치하기</button>
+  </div>
+
   <div class="card">
     <div class="card-title">
       <span>📌 변수 설정</span>
@@ -591,13 +596,34 @@ function evaluate(expr, vars) {
     function parseTerm() {
       let r = parseUnary();
       while(true) {
-        if(consume('*')) r*=parseUnary();
-        else if(consume('/')) { let d=parseUnary(); r = d===0 ? Infinity : r/d; }
+        if(consume('*') || consume('×')) {
+          r *= parseUnary();
+        }
+        else if(consume('//')) {
+          let d = parseUnary();
+          r = d === 0 ? Infinity : Math.trunc(r / d);
+        }
+        else if(consume('/')) {
+          let d = parseUnary();
+          r = d === 0 ? Infinity : r / d;
+        }
+        else if(consume('%')) {
+          let d = parseUnary();
+          r = d === 0 ? NaN : r % d;
+        }
         else break;
       }
       return r;
     }
-    function parseUnary() { if(consume('-')) return -parseUnary(); consume('+'); return parseAtom(); }
+    function parseUnary() { if(consume('-')) return -parsePower(); consume('+'); return parsePower(); }
+    function parsePower() {
+      let r = parseAtom();
+      while(true) {
+        if(consume('^')) r = Math.pow(r, parsePower());
+        else break;
+      }
+      return r;
+    }
     function parseAtom() {
       skipWS();
       if(consume('(')) { let r=parseExpr(); consume(')'); return r; }
@@ -951,13 +977,37 @@ function showToast(msg) {
   setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, 1800);
 }
 
-// ==================== SERVICE WORKER ====================
+// ==================== SERVICE WORKER & PWA INSTALL ====================
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js')
       .then((reg) => console.log('Service Worker registered', reg))
       .catch((err) => console.error('Service Worker registration failed', err));
   });
+}
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  // 브라우저의 기본 설치 프롬프트 방지
+  e.preventDefault();
+  // 나중에 호출할 수 있도록 이벤트 저장
+  deferredPrompt = e;
+  // 설정 탭에 '앱 설치' 버튼 표시
+  const installCard = document.getElementById('installCard');
+  if (installCard) installCard.style.display = 'block';
+});
+
+function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        const installCard = document.getElementById('installCard');
+        if (installCard) installCard.style.display = 'none';
+      }
+      deferredPrompt = null;
+    });
+  }
 }
 </script>
 </body>
