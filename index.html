@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0F0F1A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>수식 계산기</title>
+<link rel="manifest" href="manifest.json">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg-primary: #0F0F1A;
+  --bg-card: #1A1A2E;
+  --bg-input: #12122A;
+  --bg-nav: #131325;
+  --border: rgba(255,255,255,0.06);
+  --border-light: rgba(255,255,255,0.12);
+
+  --accent-settings: #6366F1;
+  --accent-info: #22D3EE;
+  --accent-calc: #34D399;
+  --accent-chart: #F472B6;
+
+  --accent-settings-bg: rgba(99,102,241,0.1);
+  --accent-info-bg: rgba(34,211,238,0.1);
+  --accent-calc-bg: rgba(52,211,153,0.1);
+  --accent-chart-bg: rgba(244,114,182,0.1);
+
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --danger: #F87171;
+  --danger-bg: rgba(248,113,113,0.1);
+
+  --type-constant: #818CF8;
+  --type-variable: #FB923C;
+  --type-dependent: #34D399;
+  --type-constant-bg: rgba(129,140,248,0.15);
+  --type-variable-bg: rgba(251,146,60,0.15);
+  --type-dependent-bg: rgba(52,211,153,0.15);
+
+  --font-size: 14px;
+  --radius: 14px;
+  --nav-height: 64px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size);
+  overflow: hidden;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* ===== Pages ===== */
+.page-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 16px 24px;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+.page { display: none; }
+.page.active { display: block; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* ===== Bottom Nav ===== */
+.nav {
+  display: flex;
+  background: var(--bg-nav);
+  border-top: 1px solid var(--border);
+  height: var(--nav-height);
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: all 0.2s ease;
+  padding: 8px 0;
+  position: relative;
+}
+.nav-item.active { opacity: 1; }
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: 2.5px;
+  border-radius: 0 0 4px 4px;
+}
+.nav-item[data-tab="settings"].active::before { background: var(--accent-settings); }
+.nav-item[data-tab="info"].active::before { background: var(--accent-info); }
+.nav-item[data-tab="calc"].active::before { background: var(--accent-calc); }
+.nav-item[data-tab="chart"].active::before { background: var(--accent-chart); }
+.nav-icon { font-size: 22px; line-height: 1; }
+.nav-label { font-size: 10px; font-weight: 500; color: var(--text-muted); }
+.nav-item.active .nav-label { color: var(--text-primary); }
+
+/* ===== Common ===== */
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.btn:active { transform: scale(0.95); }
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+}
+.btn-outline:hover { background: rgba(255,255,255,0.04); }
+.btn-accent { color: #fff; }
+.btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(248,113,113,0.2); }
+
+input[type="text"], input[type="number"] {
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-size: var(--font-size);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+input:focus { border-color: var(--accent-settings); }
+select {
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+/* ===== Settings Page ===== */
+.font-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.font-slider-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent-settings);
+  height: 4px;
+}
+.font-size-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-settings);
+  min-width: 40px;
+  text-align: center;
+}
+
+.var-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.var-row:last-child { border-bottom: none; }
+.var-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.var-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+.var-label-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.type-btns { display: flex; gap: 4px; width: 100%; padding-left: 40px; }
+.type-btn {
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.type-btn.active-constant { background: var(--type-constant-bg); border-color: var(--type-constant); color: var(--type-constant); }
+.type-btn.active-variable { background: var(--type-variable-bg); border-color: var(--type-variable); color: var(--type-variable); }
+.type-btn.active-dependent { background: var(--type-dependent-bg); border-color: var(--type-dependent); color: var(--type-dependent); }
+
+.del-btn {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--danger);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.del-btn:hover { background: var(--danger-bg); }
+
+.formula-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.formula-row:last-child { border-bottom: none; }
+.formula-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-settings);
+  min-width: 28px;
+  flex-shrink: 0;
+}
+.formula-row select { min-width: 48px; flex-shrink: 0; }
+.formula-eq { color: var(--text-muted); font-weight: 600; flex-shrink: 0; }
+.formula-row input { flex: 1; min-width: 0; font-size: 13px; }
+
+/* ===== Info / Calc Table ===== */
+.table-scroll {
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 0 16px;
+  -webkit-overflow-scrolling: touch;
+}
+.data-table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+.data-table th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 8px 6px;
+  text-align: center;
+  white-space: nowrap;
+  border-bottom: 2px solid var(--border-light);
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+}
+.data-table td {
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.data-table input {
+  width: 80px;
+  text-align: center;
+  padding: 6px 4px;
+  font-size: 12px;
+}
+.data-table .product-name-input { width: 100px; }
+.data-table .spec-input { width: 80px; }
+.data-table .const-input { width: 70px; }
+.data-table .var-input { width: 70px; }
+
+.result-cell {
+  font-weight: 700;
+  color: var(--accent-calc);
+  font-size: 13px;
+  min-width: 70px;
+}
+.result-error { color: var(--danger) !important; }
+
+.chart-btn-cell {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  padding: 5px 10px !important;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* ===== Chart Page ===== */
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.chart-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+}
+.chart-product-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-chart);
+  margin-bottom: 4px;
+}
+.chart-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.chart-entry {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.chart-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.chart-entry-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-chart);
+}
+.chart-entry-time {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.chart-entry-vars, .chart-entry-results {
+  font-size: 11px;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+.chart-entry-vars { color: var(--text-secondary); }
+.chart-entry-results { color: var(--accent-chart); font-weight: 600; }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+.empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+.empty-state .msg { font-size: 15px; margin-bottom: 6px; }
+.empty-state .hint { font-size: 12px; }
+
+/* Add row button full-width */
+.add-row-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  border: 1px dashed var(--border-light);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.add-row-btn:hover { background: rgba(255,255,255,0.03); }
+
+/* ===== Font-size scaling ===== */
+.card-title { font-size: calc(var(--font-size) - 1px); }
+.var-badge { font-size: var(--font-size); }
+.type-btn { font-size: calc(var(--font-size) - 4px); }
+.formula-label { font-size: calc(var(--font-size) - 2px); }
+.formula-row input { font-size: calc(var(--font-size) - 1px); }
+.formula-row select { font-size: calc(var(--font-size) - 2px); }
+.del-btn { font-size: var(--font-size); }
+.data-table th { font-size: calc(var(--font-size) - 3px); }
+.data-table td { font-size: calc(var(--font-size) - 2px); }
+.data-table input { font-size: calc(var(--font-size) - 2px); }
+.result-cell { font-size: calc(var(--font-size) + 1px); }
+.chart-product-name { font-size: calc(var(--font-size) + 1px); }
+.chart-count { font-size: calc(var(--font-size) - 3px); }
+.chart-entry-num { font-size: calc(var(--font-size) - 3px); }
+.chart-entry-time { font-size: calc(var(--font-size) - 4px); }
+.chart-entry-vars { font-size: calc(var(--font-size) - 3px); }
+.chart-entry-results { font-size: calc(var(--font-size) - 2px); }
+.empty-state .msg { font-size: calc(var(--font-size) + 1px); }
+.empty-state .hint { font-size: calc(var(--font-size) - 2px); }
+.btn { font-size: calc(var(--font-size) - 2px); }
+select { font-size: calc(var(--font-size) - 2px); }
+</style>
+</head>
+<body>
+
+<!-- ===== SETTINGS PAGE ===== -->
+<div class="page-container">
+<div id="page-settings" class="page active">
+  <div class="page-title" style="color:var(--accent-settings)">⚙️ 기본설정</div>
+
+  <div class="card">
+    <div class="card-title">🔤 글씨 크기</div>
+    <div class="font-slider-row">
+      <input type="range" id="fontSlider" min="10" max="22" value="14">
+      <span class="font-size-label" id="fontLabel">14px</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>📌 변수 설정</span>
+      <button class="btn btn-outline" onclick="addVariable()">＋ 추가</button>
+    </div>
+    <div id="variableContainer"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>📐 수식 설정</span>
+      <button class="btn btn-outline" onclick="addFormula()">＋ 추가</button>
+    </div>
+    <div id="formulaContainer"></div>
+  </div>
+</div>
+
+<!-- ===== INFO PAGE ===== -->
+<div id="page-info" class="page">
+  <div class="page-title" style="color:var(--accent-info)">📋 기본정보</div>
+  <div class="card">
+    <div class="table-scroll">
+      <table class="data-table" id="infoTable"></table>
+    </div>
+  </div>
+  <button class="add-row-btn" onclick="addProduct()">＋ 행 추가</button>
+</div>
+
+<!-- ===== CALC PAGE ===== -->
+<div id="page-calc" class="page">
+  <div class="page-title" style="color:var(--accent-calc)">🧮 계산</div>
+  <div class="card" id="calcFormulaCard" style="display:none">
+    <div class="card-title">📐 적용 수식</div>
+    <div id="calcFormulaList"></div>
+  </div>
+  <div class="card">
+    <div class="table-scroll">
+      <table class="data-table" id="calcTable"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CHART PAGE ===== -->
+<div id="page-chart" class="page">
+  <div class="chart-header">
+    <div class="page-title" style="color:var(--accent-chart);margin-bottom:0">📊 차트</div>
+    <button class="btn btn-danger" onclick="resetChart()">🗑️ 리셋</button>
+  </div>
+  <div id="chartContainer"></div>
+</div>
+</div>
+
+<!-- ===== BOTTOM NAV ===== -->
+<nav class="nav">
+  <div class="nav-item active" data-tab="settings" onclick="switchTab('settings')">
+    <span class="nav-icon">⚙️</span>
+    <span class="nav-label">기본설정</span>
+  </div>
+  <div class="nav-item" data-tab="info" onclick="switchTab('info')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">기본정보</span>
+  </div>
+  <div class="nav-item" data-tab="calc" onclick="switchTab('calc')">
+    <span class="nav-icon">🧮</span>
+    <span class="nav-label">계산</span>
+  </div>
+  <div class="nav-item" data-tab="chart" onclick="switchTab('chart')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">차트</span>
+  </div>
+</nav>
+
+<script>
+// ==================== DATA ====================
+const DEFAULT_DATA = {
+  fontSize: 14,
+  variables: [{ name: 'A', type: 0 }],
+  formulas: [{ targetVariable: '', expression: '' }],
+  products: [{ name: '상품 1', spec: '', constants: {} }],
+  chartData: {}
+};
+
+let data;
+function loadData() {
+  try {
+    const saved = localStorage.getItem('formulaCalcData');
+    data = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_DATA));
+    if (!data.chartData) data.chartData = {};
+  } catch(e) { data = JSON.parse(JSON.stringify(DEFAULT_DATA)); }
+}
+function saveData() {
+  localStorage.setItem('formulaCalcData', JSON.stringify(data));
+}
+loadData();
+
+// ==================== NAV ====================
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
+  if (tab === 'info') renderInfo();
+  if (tab === 'calc') renderCalc();
+  if (tab === 'chart') renderChart();
+}
+
+// ==================== FORMULA PARSER ====================
+function evaluate(expr, vars) {
+  if (!expr || !expr.trim()) return NaN;
+  try {
+    let pos = 0;
+    const input = expr.trim();
+    function skipWS() { while(pos<input.length && input[pos]===' ') pos++; }
+    function peek() { skipWS(); return pos<input.length ? input[pos] : null; }
+    function consume(ch) { skipWS(); if(pos<input.length && input[pos]===ch) { pos++; return true; } return false; }
+    function parseExpr() {
+      let r = parseTerm();
+      while(true) { if(consume('+')) r+=parseTerm(); else if(consume('-')) r-=parseTerm(); else break; }
+      return r;
+    }
+    function parseTerm() {
+      let r = parseUnary();
+      while(true) {
+        if(consume('*')) r*=parseUnary();
+        else if(consume('/')) { let d=parseUnary(); r = d===0 ? Infinity : r/d; }
+        else break;
+      }
+      return r;
+    }
+    function parseUnary() { if(consume('-')) return -parseUnary(); consume('+'); return parseAtom(); }
+    function parseAtom() {
+      skipWS();
+      if(consume('(')) { let r=parseExpr(); consume(')'); return r; }
+      if(pos<input.length && input[pos]>='A' && input[pos]<='Z') {
+        let name='';
+        while(pos<input.length && input[pos]>='A' && input[pos]<='Z') name+=input[pos++];
+        return (vars && vars[name] !== undefined) ? vars[name] : 0;
+      }
+      if(pos<input.length && (input[pos]>='0'&&input[pos]<='9' || input[pos]==='.')) {
+        let num=''; let hasDot=false;
+        while(pos<input.length) {
+          if(input[pos]>='0'&&input[pos]<='9') num+=input[pos++];
+          else if(input[pos]==='.'&&!hasDot) { hasDot=true; num+=input[pos++]; }
+          else break;
+        }
+        return parseFloat(num);
+      }
+      return NaN;
+    }
+    const result = parseExpr();
+    return (pos < input.length) ? NaN : result;
+  } catch(e) { return NaN; }
+}
+
+// ==================== HELPERS ====================
+function varDisplay(v) {
+  return v.label ? `${v.name}(${v.label})` : v.name;
+}
+function varDisplayShort(v) {
+  return v.label || v.name;
+}
+
+// ==================== SETTINGS ====================
+function renderVariables() {
+  const c = document.getElementById('variableContainer');
+  c.innerHTML = '';
+  data.variables.forEach((v, i) => {
+    const row = document.createElement('div');
+    row.className = 'var-row';
+    const types = [
+      { label:'상수', cls:'active-constant', type:0 },
+      { label:'변수', cls:'active-variable', type:1 },
+      { label:'종속변수', cls:'active-dependent', type:2 }
+    ];
+    row.innerHTML = `
+      <div class="var-top">
+        <div class="var-badge">${v.name}</div>
+        <input type="text" class="var-label-input" value="${esc(v.label||'')}" placeholder="이름" oninput="setVarLabel(${i},this.value)">
+        <button class="del-btn" onclick="removeVariable(${i})">✕</button>
+      </div>
+      <div class="type-btns">
+        ${types.map(t => `<button class="type-btn ${v.type===t.type?t.cls:''}" onclick="setVarType(${i},${t.type})">${t.label}</button>`).join('')}
+      </div>`;
+    c.appendChild(row);
+  });
+}
+function addVariable() {
+  const used = data.variables.map(v=>v.name);
+  for(let c=65;c<=90;c++) { if(!used.includes(String.fromCharCode(c))) { data.variables.push({name:String.fromCharCode(c),type:0,label:''}); break; } }
+  saveData(); renderVariables(); renderFormulas();
+}
+function removeVariable(i) { data.variables.splice(i,1); saveData(); renderVariables(); renderFormulas(); }
+function setVarType(i,t) { data.variables[i].type=t; saveData(); renderVariables(); renderFormulas(); }
+function setVarLabel(i,v) { data.variables[i].label=v; saveData(); }
+
+function renderFormulas() {
+  const c = document.getElementById('formulaContainer');
+  c.innerHTML = '';
+  const deps = data.variables.filter(v=>v.type===2);
+  data.formulas.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'formula-row';
+    const opts = deps.map(d => `<option value="${d.name}" ${f.targetVariable===d.name?'selected':''}>${varDisplay(d)}</option>`).join('');
+    row.innerHTML = `
+      <span class="formula-label">식${i+1}</span>
+      <select onchange="setFormulaTarget(${i},this.value)"><option value="">선택</option>${opts}</select>
+      <span class="formula-eq">=</span>
+      <input type="text" value="${f.expression||''}" placeholder="A * B + 3" oninput="setFormulaExpr(${i},this.value)">
+      <button class="del-btn" onclick="removeFormula(${i})">✕</button>`;
+    c.appendChild(row);
+  });
+}
+function addFormula() { data.formulas.push({targetVariable:'',expression:''}); saveData(); renderFormulas(); }
+function removeFormula(i) { data.formulas.splice(i,1); saveData(); renderFormulas(); }
+function setFormulaTarget(i,v) { data.formulas[i].targetVariable=v; saveData(); }
+function setFormulaExpr(i,v) { data.formulas[i].expression=v; saveData(); }
+
+// Font size
+document.getElementById('fontSlider').value = data.fontSize;
+document.getElementById('fontLabel').textContent = data.fontSize + 'px';
+document.getElementById('fontSlider').addEventListener('input', e => {
+  data.fontSize = parseInt(e.target.value);
+  document.getElementById('fontLabel').textContent = data.fontSize + 'px';
+  document.documentElement.style.setProperty('--font-size', data.fontSize + 'px');
+  saveData();
+});
+document.documentElement.style.setProperty('--font-size', data.fontSize + 'px');
+
+renderVariables();
+renderFormulas();
+
+// ==================== INFO ====================
+function renderInfo() {
+  const table = document.getElementById('infoTable');
+  const consts = data.variables.filter(v=>v.type===0);
+  let html = '<thead><tr><th>상품명</th><th>규격</th>';
+  consts.forEach(c => html += `<th style="color:var(--type-constant)">${varDisplay(c)}</th>`);
+  html += '<th></th></tr></thead><tbody>';
+  data.products.forEach((p, i) => {
+    html += `<tr>
+      <td><input type="text" class="product-name-input" value="${esc(p.name)}" oninput="updateProduct(${i},'name',this.value)"></td>
+      <td><input type="text" class="spec-input" value="${esc(p.spec)}" oninput="updateProduct(${i},'spec',this.value)"></td>`;
+    consts.forEach(c => {
+      const val = p.constants[c.name] !== undefined ? p.constants[c.name] : '';
+      html += `<td><input type="number" class="const-input" value="${val}" oninput="updateConst(${i},'${c.name}',this.value)" step="any"></td>`;
+    });
+    html += `<td><button class="del-btn" onclick="removeProduct(${i})">✕</button></td></tr>`;
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+function updateProduct(i,field,val) { data.products[i][field]=val; saveData(); }
+function updateConst(i,name,val) {
+  if(!data.products[i].constants) data.products[i].constants={};
+  data.products[i].constants[name] = val==='' ? '' : parseFloat(val);
+  saveData();
+}
+function addProduct() { data.products.push({name:'상품 '+(data.products.length+1),spec:'',constants:{}}); saveData(); renderInfo(); }
+function removeProduct(i) { data.products.splice(i,1); saveData(); renderInfo(); }
+function esc(s) { return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// ==================== CALC ====================
+let calcDebounce = null;
+const calcInputCache = {}; // { 'rowIdx_varName': value }
+
+function renderCalcFormulas() {
+  const card = document.getElementById('calcFormulaCard');
+  const list = document.getElementById('calcFormulaList');
+  const depVars = data.variables.filter(v=>v.type===2);
+  if (!depVars.length) { card.style.display='none'; return; }
+  card.style.display='block';
+  let html = '';
+  depVars.forEach(dv => {
+    const formula = data.formulas.find(f=>f.targetVariable===dv.name);
+    const opts = data.formulas.map((f,i) => {
+      const fTarget = f.targetVariable ? data.variables.find(x=>x.name===f.targetVariable) : null;
+      const fLabel = fTarget ? `식${i+1}: ${varDisplay(fTarget)} = ${f.expression||'(비어있음)'}` : `식${i+1}: (미지정)`;
+      return `<option value="${i}" ${f.targetVariable===dv.name?'selected':''}>${fLabel}</option>`;
+    }).join('');
+    html += `<div class="formula-row" style="border-bottom:1px solid var(--border);padding:6px 0">
+      <span class="var-badge" style="width:28px;height:28px;font-size:13px;color:var(--accent-calc)">${varDisplay(dv)}</span>
+      <span class="formula-eq">=</span>
+      <select style="flex:1;min-width:0" onchange="assignFormula('${dv.name}',this.value)">
+        <option value="-1">수식 선택...</option>${opts}
+      </select>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function assignFormula(varName, formulaIdx) {
+  formulaIdx = parseInt(formulaIdx);
+  // Unassign any formula previously targeting this variable
+  data.formulas.forEach(f => { if(f.targetVariable === varName) f.targetVariable = ''; });
+  // Assign the selected formula
+  if (formulaIdx >= 0 && formulaIdx < data.formulas.length) {
+    data.formulas[formulaIdx].targetVariable = varName;
+  }
+  saveData();
+  renderCalcFormulas();
+  // Recalculate all rows
+  data.products.forEach((_, ri) => doCalcRow(ri));
+}
+
+function renderCalc() {
+  const table = document.getElementById('calcTable');
+  const inputVars = data.variables.filter(v=>v.type===1);
+  const depVars = data.variables.filter(v=>v.type===2);
+  const consts = data.variables.filter(v=>v.type===0);
+
+  renderCalcFormulas();
+
+  if (!data.products.length || !data.variables.length) {
+    table.innerHTML = '';
+    return;
+  }
+
+  let html = '<thead><tr><th>상품명</th>';
+  inputVars.forEach(v => html += `<th style="color:var(--type-variable)">${varDisplay(v)}</th>`);
+  depVars.forEach(v => html += `<th style="color:var(--accent-calc)">${varDisplay(v)}</th>`);
+  html += '<th style="color:var(--accent-chart)">차트</th></tr></thead><tbody>';
+
+  data.products.forEach((p, ri) => {
+    const label = p.spec ? `${esc(p.name)} (${esc(p.spec)})` : esc(p.name);
+    html += `<tr><td style="font-size:11px;font-weight:600;white-space:nowrap">${label}</td>`;
+    inputVars.forEach(v => {
+      const cached = calcInputCache[`${ri}_${v.name}`] || '';
+      html += `<td><input type="number" class="var-input" id="input_${ri}_${v.name}" value="${cached}" step="any" oninput="onCalcInput(${ri},'${v.name}',this.value)"></td>`;
+    });
+    depVars.forEach(v => {
+      html += `<td class="result-cell" id="result_${ri}_${v.name}">-</td>`;
+    });
+    html += `<td><button class="btn btn-accent" style="background:var(--accent-chart);font-size:11px;padding:5px 10px" onclick="saveToChart(${ri})">차트</button></td>`;
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+
+  // Recalculate all rows with cached values
+  data.products.forEach((_, ri) => doCalcRow(ri));
+}
+
+function onCalcInput(ri, varName, val) {
+  calcInputCache[`${ri}_${varName}`] = val;
+  calcRow(ri);
+}
+
+function calcRow(ri) {
+  clearTimeout(calcDebounce);
+  calcDebounce = setTimeout(() => doCalcRow(ri), 200);
+}
+
+function doCalcRow(ri) {
+  const product = data.products[ri];
+  const inputVars = data.variables.filter(v=>v.type===1);
+  const depVars = data.variables.filter(v=>v.type===2);
+  const consts = data.variables.filter(v=>v.type===0);
+
+  // Build variable map
+  const varMap = {};
+  // Constants from product
+  consts.forEach(c => {
+    const val = product.constants ? product.constants[c.name] : undefined;
+    if (val !== undefined && val !== '') varMap[c.name] = parseFloat(val);
+  });
+  // Input variables from UI
+  inputVars.forEach(v => {
+    const el = document.getElementById(`input_${ri}_${v.name}`);
+    if (el && el.value !== '') varMap[v.name] = parseFloat(el.value);
+    else varMap[v.name] = 0;
+  });
+
+  // Calculate each dependent variable
+  depVars.forEach(dv => {
+    const formula = data.formulas.find(f => f.targetVariable === dv.name);
+    const el = document.getElementById(`result_${ri}_${dv.name}`);
+    if (!el) return;
+    if (!formula || !formula.expression) { el.textContent = '-'; el.classList.remove('result-error'); return; }
+    
+    const result = evaluate(formula.expression, varMap);
+    if (isNaN(result) || !isFinite(result)) {
+      el.textContent = '오류';
+      el.classList.add('result-error');
+    } else {
+      el.textContent = formatNum(result);
+      el.classList.remove('result-error');
+      varMap[dv.name] = result;
+    }
+  });
+}
+
+function saveToChart(ri) {
+  const product = data.products[ri];
+  const inputVars = data.variables.filter(v=>v.type===1);
+  const depVars = data.variables.filter(v=>v.type===2);
+
+  const entry = {
+    timestamp: new Date().toLocaleString('ko-KR'),
+    variables: {},
+    results: {}
+  };
+  inputVars.forEach(v => {
+    const el = document.getElementById(`input_${ri}_${v.name}`);
+    entry.variables[v.name] = el ? parseFloat(el.value||'0') : 0;
+  });
+  depVars.forEach(v => {
+    const el = document.getElementById(`result_${ri}_${v.name}`);
+    if (el && el.textContent !== '-' && el.textContent !== '오류') {
+      entry.results[v.name] = parseFloat(el.textContent);
+    }
+  });
+
+  // Key = 상품명 + 규격
+  const namePart = product.name || '이름없음';
+  const specPart = product.spec ? ` [${product.spec}]` : '';
+  const key = namePart + specPart;
+  if (!data.chartData[key]) data.chartData[key] = [];
+  data.chartData[key].unshift(entry);
+  saveData();
+  showToast('✅ 차트에 저장되었습니다');
+}
+
+// ==================== CHART ====================
+function renderChart() {
+  const c = document.getElementById('chartContainer');
+  const entries = Object.entries(data.chartData || {}).filter(([k,v]) => v && v.length > 0);
+  if (!entries.length) {
+    c.innerHTML = `<div class="empty-state">
+      <div class="emoji">📭</div>
+      <div class="msg">아직 저장된 데이터가 없습니다</div>
+      <div class="hint">계산 페이지에서 '차트' 버튼을 눌러 데이터를 저장해보세요</div>
+    </div>`;
+    return;
+  }
+  let html = '';
+  entries.forEach(([name, list]) => {
+    html += `<div class="chart-card">
+      <div class="chart-product-name">📦 ${esc(name)}</div>
+      <div class="chart-count">총 ${list.length}건</div>`;
+    list.forEach((e, i) => {
+      const varLookup = (k) => { const v = data.variables.find(x=>x.name===k); return v ? varDisplay(v) : k; };
+      const varsStr = Object.entries(e.variables||{}).map(([k,v])=>`${varLookup(k)}=${formatNum(v)}`).join('  ');
+      const resStr = Object.entries(e.results||{}).map(([k,v])=>`${varLookup(k)}=${formatNum(v)}`).join('  ');
+      html += `<div class="chart-entry">
+        <div class="chart-entry-header">
+          <span class="chart-entry-num">#${i+1}</span>
+          <span class="chart-entry-time">${esc(e.timestamp)}</span>
+        </div>
+        ${varsStr ? `<div class="chart-entry-vars">📥 ${esc(varsStr)}</div>` : ''}
+        ${resStr ? `<div class="chart-entry-results">📊 ${esc(resStr)}</div>` : ''}
+      </div>`;
+    });
+    html += '</div>';
+  });
+  c.innerHTML = html;
+}
+function resetChart() {
+  if (!confirm('모든 차트 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+  data.chartData = {};
+  saveData();
+  renderChart();
+  showToast('🗑 차트 데이터가 삭제되었습니다');
+}
+
+// ==================== UTILS ====================
+function formatNum(v) {
+  if (v === undefined || v === null || isNaN(v)) return '0';
+  return v === Math.floor(v) ? String(Math.floor(v)) : v.toFixed(2);
+}
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position:'fixed', bottom:'80px', left:'50%', transform:'translateX(-50%)',
+    background:'rgba(30,30,50,0.95)', color:'#fff', padding:'10px 20px',
+    borderRadius:'10px', fontSize:'13px', fontWeight:'600', zIndex:'9999',
+    boxShadow:'0 4px 20px rgba(0,0,0,0.4)', backdropFilter:'blur(10px)',
+    animation:'fadeIn 0.2s ease', whiteSpace:'nowrap'
+  });
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, 1800);
+}
+</script>
+</body>
+</html>

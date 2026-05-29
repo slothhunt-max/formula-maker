@@ -1,0 +1,11 @@
+{
+  "name": "수식 계산기",
+  "short_name": "수식계산기",
+  "description": "변수와 수식을 이용한 계산기",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0F0F1A",
+  "theme_color": "#0F0F1A",
+  "orientation": "portrait",
+  "icons": []
+}
