@@ -785,7 +785,7 @@ function addVariable() {
 function removeVariable(i) { customConfirm('정말 삭제하시겠습니까?', () => { data.variables.splice(i,1); saveData(); renderVariables(); renderFormulas(); }); }
 function setVarType(i,t) { 
   if (data.variables[i].type === t) return;
-  customConfirm('변수의 종류를 변경하시겠습니까?\\n수식이나 데이터 구조에 영향을 줄 수 있습니다.', () => {
+  customConfirm('변수의 종류를 변경하시겠습니까?\n수식이나 데이터 구조에 영향을 줄 수 있습니다.', () => {
     data.variables[i].type = t;
     saveData();
     renderVariables();
